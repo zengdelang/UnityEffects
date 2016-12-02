@@ -5,11 +5,12 @@
 /// 1、使用一个单独相机渲染出一个需要画边对象的深度图
 /// 2、比较场景深度图和对象深度图，剔除对象深度被场景深度遮挡的深度到单独的一张纹理中
 /// 3、绘制场景原始图并混合绘制边缘，使用Sobel算子来画边，边缘的检测深度从挑选后的深度图中获取，左右，上下像素深度从原始深度图中读取
+/// 4、需要描边的材质不用使用类似粒子的shader，因为主相机渲染这些shader不会把深度写到深度图中
 /// </summary>
 public class EdgeDetectionEffect : MonoBehaviour
 {
     private Camera m_Camera;
-    private Camera m_SceneDepthCamera;
+ 
     private Shader m_RenderDepthShader;
 
     private Material m_OcclusionMaterial;
@@ -63,8 +64,7 @@ public class EdgeDetectionEffect : MonoBehaviour
 
 
         //需要设置主相机生成深度图，否则在质量切换为Fast,Fastest的时候，主相机就不会生成深度图，导致无法绘制边缘
-        //注释，不需要相机自动生成深度图，使用手动的方式来生成深度图，因为部分shader会导致渲染的物体不会把深度写入到深度图中
-        //Camera.main.depthTextureMode |= DepthTextureMode.Depth;
+        Camera.main.depthTextureMode |= DepthTextureMode.Depth;
 
         m_Camera = cameraGo.AddComponent<Camera>();
         m_Camera.clearFlags = CameraClearFlags.Depth;
@@ -75,22 +75,7 @@ public class EdgeDetectionEffect : MonoBehaviour
         m_Camera.depthTextureMode = DepthTextureMode.None;
 	    m_Camera.cullingMask = m_RenderLayer;
 	    m_Camera.enabled = false;
-
-        GameObject sceneDepthCameraGo = new GameObject("SceneDepthCamera");
-        sceneDepthCameraGo.transform.parent = Camera.main.transform;
-        sceneDepthCameraGo.transform.localPosition = Vector3.zero;
-        sceneDepthCameraGo.transform.localScale = Vector3.one;
-        sceneDepthCameraGo.transform.localRotation = Quaternion.identity;
-        m_SceneDepthCamera = sceneDepthCameraGo.AddComponent<Camera>();
-        m_SceneDepthCamera.clearFlags = CameraClearFlags.Depth;
-        m_SceneDepthCamera.orthographic = false;
-        m_SceneDepthCamera.nearClipPlane = Camera.main.nearClipPlane;
-        m_SceneDepthCamera.farClipPlane = Camera.main.farClipPlane;
-        m_SceneDepthCamera.rect = Camera.main.rect;
-        m_SceneDepthCamera.depthTextureMode = DepthTextureMode.None;
-        m_SceneDepthCamera.cullingMask = Camera.main.cullingMask;
-        m_SceneDepthCamera.enabled = false;
-
+ 
         m_OcclusionMaterial = new Material(Shader.Find("DepthCull"));
         m_OcclusionMaterial.hideFlags = HideFlags.DontSave;
 
@@ -101,7 +86,6 @@ public class EdgeDetectionEffect : MonoBehaviour
     [ImageEffectOpaque]
     void OnRenderImage(RenderTexture source, RenderTexture destination)
     {
-        var sceneDepthRenderTexture = RenderTexture.GetTemporary(Screen.width, Screen.height, 24, RenderTextureFormat.Depth);
         var depthRenderTexture = RenderTexture.GetTemporary(Screen.width, Screen.height, 24, RenderTextureFormat.Depth);
         var occlusionRenderTexture = RenderTexture.GetTemporary(Screen.width, Screen.height, 0);
        
@@ -109,23 +93,15 @@ public class EdgeDetectionEffect : MonoBehaviour
         m_Camera.fieldOfView = Camera.main.fieldOfView;
         m_Camera.aspect = Camera.main.aspect;
         m_Camera.RenderWithShader(m_RenderDepthShader, string.Empty);
-
-        m_SceneDepthCamera.targetTexture = sceneDepthRenderTexture;
-        m_SceneDepthCamera.fieldOfView = Camera.main.fieldOfView;
-        m_SceneDepthCamera.aspect = Camera.main.aspect;
-        m_SceneDepthCamera.RenderWithShader(m_RenderDepthShader, string.Empty);
-
-        m_OcclusionMaterial.SetTexture("_SceneDepthTexture", sceneDepthRenderTexture);
+ 
         Graphics.Blit(depthRenderTexture, occlusionRenderTexture, m_OcclusionMaterial);
 
         m_EdgeDectectionMaterial.SetFloat("_SampleDistance", m_SampleDist);
         m_EdgeDectectionMaterial.SetColor("_OutlineColor", m_OutlineColor);
         m_EdgeDectectionMaterial.SetFloat("_Exponent", EdgeExp);
-        m_EdgeDectectionMaterial.SetTexture("_DepthTexture", depthRenderTexture);
-        m_EdgeDectectionMaterial.SetTexture("_PartDepthTexture", occlusionRenderTexture);
+        m_EdgeDectectionMaterial.SetTexture("_DepthTexture", occlusionRenderTexture);
         Graphics.Blit(source, destination, m_EdgeDectectionMaterial);
 
-        RenderTexture.ReleaseTemporary(sceneDepthRenderTexture);
         RenderTexture.ReleaseTemporary(depthRenderTexture);
         RenderTexture.ReleaseTemporary(occlusionRenderTexture);
     }

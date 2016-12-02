@@ -9,9 +9,11 @@
 	{
 		Pass
 		{
+			//加上下面的配置，否则粒子渲染不出来
 			ZTest Always Cull Off ZWrite Off
 
 			CGPROGRAM
+			#pragma target 3.0   
 			#pragma vertex vertD
 			#pragma fragment fragD
 			
@@ -24,7 +26,6 @@
 
 			sampler2D _MainTex;
 			uniform sampler2D _DepthTexture;
-			uniform sampler2D _PartDepthTexture;
 			uniform float4 _MainTex_TexelSize;
 
 			uniform half4 _OutlineColor;
@@ -49,23 +50,29 @@
 				return o;
 			}
 
+			//g通道保存了未裁剪前的深度值
+			float SAMPLE_COMPLETE_DEPTH_TEXTURE(sampler2D tex,float2 uv)
+			{
+				return tex2D(tex, uv).g;
+			}
+
 			float4 fragD(v2fd i) : SV_Target
 			{
-				float centerDepth = Linear01Depth(SAMPLE_DEPTH_TEXTURE(_PartDepthTexture, i.uv[1]));
+				float centerDepth = Linear01Depth(SAMPLE_DEPTH_TEXTURE(_DepthTexture, i.uv[1]));
 				float4 depthsDiag;
 				float4 depthsAxis;
 
 				float2 uvDist = _SampleDistance * _MainTex_TexelSize.xy;
 
-				depthsDiag.x = Linear01Depth(SAMPLE_DEPTH_TEXTURE(_DepthTexture,i.uv[1] + uvDist)); // TR
-				depthsDiag.y = Linear01Depth(SAMPLE_DEPTH_TEXTURE(_DepthTexture,i.uv[1] + uvDist*float2(-1,1))); // TL
-				depthsDiag.z = Linear01Depth(SAMPLE_DEPTH_TEXTURE(_DepthTexture,i.uv[1] - uvDist*float2(-1,1))); // BR
-				depthsDiag.w = Linear01Depth(SAMPLE_DEPTH_TEXTURE(_DepthTexture,i.uv[1] - uvDist)); // BL
+				depthsDiag.x = Linear01Depth(SAMPLE_COMPLETE_DEPTH_TEXTURE(_DepthTexture,i.uv[1] + uvDist)); // TR
+				depthsDiag.y = Linear01Depth(SAMPLE_COMPLETE_DEPTH_TEXTURE(_DepthTexture,i.uv[1] + uvDist*float2(-1,1))); // TL
+				depthsDiag.z = Linear01Depth(SAMPLE_COMPLETE_DEPTH_TEXTURE(_DepthTexture,i.uv[1] - uvDist*float2(-1,1))); // BR
+				depthsDiag.w = Linear01Depth(SAMPLE_COMPLETE_DEPTH_TEXTURE(_DepthTexture,i.uv[1] - uvDist)); // BL
 
-				depthsAxis.x = Linear01Depth(SAMPLE_DEPTH_TEXTURE(_DepthTexture,i.uv[1] + uvDist*float2(0,1))); // T
-				depthsAxis.y = Linear01Depth(SAMPLE_DEPTH_TEXTURE(_DepthTexture,i.uv[1] - uvDist*float2(1,0))); // L
-				depthsAxis.z = Linear01Depth(SAMPLE_DEPTH_TEXTURE(_DepthTexture,i.uv[1] + uvDist*float2(1,0))); // R
-				depthsAxis.w = Linear01Depth(SAMPLE_DEPTH_TEXTURE(_DepthTexture,i.uv[1] - uvDist*float2(0,1))); // B
+				depthsAxis.x = Linear01Depth(SAMPLE_COMPLETE_DEPTH_TEXTURE(_DepthTexture,i.uv[1] + uvDist*float2(0,1))); // T
+				depthsAxis.y = Linear01Depth(SAMPLE_COMPLETE_DEPTH_TEXTURE(_DepthTexture,i.uv[1] - uvDist*float2(1,0))); // L
+				depthsAxis.z = Linear01Depth(SAMPLE_COMPLETE_DEPTH_TEXTURE(_DepthTexture,i.uv[1] + uvDist*float2(1,0))); // R
+				depthsAxis.w = Linear01Depth(SAMPLE_COMPLETE_DEPTH_TEXTURE(_DepthTexture,i.uv[1] - uvDist*float2(0,1))); // B
 
 				// make it work nicely with depth based image effects such as depth of field:
 				depthsDiag = (depthsDiag > centerDepth.xxxx) ? depthsDiag : centerDepth.xxxx;
