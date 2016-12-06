@@ -32,7 +32,8 @@
 		 
 				if (outlineDepth < 1)
 				{
-					if (outlineDepth - sceneDepth > 0.00045)
+					//if (outlineDepth - sceneDepth > 0.00045)
+                    if (outlineDepth > sceneDepth)
 					{
 						return fixed4(1, 0, 0, 0.5);
 					}
