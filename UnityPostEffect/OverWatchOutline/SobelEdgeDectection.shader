@@ -15,7 +15,7 @@
 			CGPROGRAM
 			#pragma target 3.0   
 			#pragma vertex vertD
-			#pragma fragment fragD
+			#pragma fragment frag
 			
 			#include "UnityCG.cginc"
 
@@ -27,6 +27,7 @@
 			sampler2D _MainTex;
 			uniform sampler2D _DepthTexture;
 			uniform float4 _MainTex_TexelSize;
+			uniform sampler2D _CameraDepthTexture;
 
 			uniform half4 _OutlineColor;
 			uniform half _SampleDistance;
@@ -50,15 +51,18 @@
 				return o;
 			}
 
-			//g通道保存了未裁剪前的深度值
 			float SAMPLE_COMPLETE_DEPTH_TEXTURE(sampler2D tex,float2 uv)
 			{
-				return tex2D(tex, uv).g;
+				if (tex2D(tex, uv).r < 1)
+				{
+					return 0;
+				}
+				return 1;
 			}
 
-			float4 fragD(v2fd i) : SV_Target
+			float4 fragD(v2fd i, float centerDepth)
 			{
-				float centerDepth = Linear01Depth(SAMPLE_DEPTH_TEXTURE(_DepthTexture, i.uv[1]));
+				//float centerDepth = Linear01Depth(SAMPLE_DEPTH_TEXTURE(_DepthTexture, i.uv[1]));
 				float4 depthsDiag;
 				float4 depthsAxis;
 
@@ -98,6 +102,21 @@
 				if (Sobel < 0.01)
 				{
 					return _OutlineColor;
+				}
+				return tex2D(_MainTex, i.uv[0]);
+			}
+
+			fixed4 frag(v2fd i) : SV_Target
+			{
+				float outlineDepth = tex2D(_DepthTexture, i.uv[1]);
+				float sceneDepth = tex2D(_CameraDepthTexture, i.uv[1]);
+
+				if (outlineDepth < 1)
+				{
+					if (outlineDepth <= sceneDepth)
+					{
+						return fragD(i, 0.1);
+					}
 				}
 				return tex2D(_MainTex, i.uv[0]);
 			}
