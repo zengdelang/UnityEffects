@@ -51,11 +51,27 @@
 				return o;
 			}
 
+			//overwatch mode
 			float SAMPLE_COMPLETE_DEPTH_TEXTURE(sampler2D tex,float2 uv)
 			{
 				if (tex2D(tex, uv).r < 1)
 				{
 					return 0;
+				}
+				return 1;
+			}
+
+			//lol mode
+			float SAMPLE_COMPLETE_DEPTH_TEXTURE_LOL(sampler2D tex, float2 uv)
+			{
+				float outlineDepth = tex2D(_DepthTexture, uv);
+				float sceneDepth = tex2D(_CameraDepthTexture, uv);
+				if (outlineDepth < 1)
+				{
+					if (outlineDepth <= sceneDepth)
+					{
+						return 0;
+					}
 				}
 				return 1;
 			}
@@ -68,15 +84,15 @@
 
 				float2 uvDist = _SampleDistance * _MainTex_TexelSize.xy;
 
-				depthsDiag.x = Linear01Depth(SAMPLE_COMPLETE_DEPTH_TEXTURE(_DepthTexture,i.uv[1] + uvDist)); // TR
-				depthsDiag.y = Linear01Depth(SAMPLE_COMPLETE_DEPTH_TEXTURE(_DepthTexture,i.uv[1] + uvDist*float2(-1,1))); // TL
-				depthsDiag.z = Linear01Depth(SAMPLE_COMPLETE_DEPTH_TEXTURE(_DepthTexture,i.uv[1] - uvDist*float2(-1,1))); // BR
-				depthsDiag.w = Linear01Depth(SAMPLE_COMPLETE_DEPTH_TEXTURE(_DepthTexture,i.uv[1] - uvDist)); // BL
+				depthsDiag.x = Linear01Depth(SAMPLE_COMPLETE_DEPTH_TEXTURE_LOL(_DepthTexture,i.uv[1] + uvDist)); // TR
+				depthsDiag.y = Linear01Depth(SAMPLE_COMPLETE_DEPTH_TEXTURE_LOL(_DepthTexture,i.uv[1] + uvDist*float2(-1,1))); // TL
+				depthsDiag.z = Linear01Depth(SAMPLE_COMPLETE_DEPTH_TEXTURE_LOL(_DepthTexture,i.uv[1] - uvDist*float2(-1,1))); // BR
+				depthsDiag.w = Linear01Depth(SAMPLE_COMPLETE_DEPTH_TEXTURE_LOL(_DepthTexture,i.uv[1] - uvDist)); // BL
 
-				depthsAxis.x = Linear01Depth(SAMPLE_COMPLETE_DEPTH_TEXTURE(_DepthTexture,i.uv[1] + uvDist*float2(0,1))); // T
-				depthsAxis.y = Linear01Depth(SAMPLE_COMPLETE_DEPTH_TEXTURE(_DepthTexture,i.uv[1] - uvDist*float2(1,0))); // L
-				depthsAxis.z = Linear01Depth(SAMPLE_COMPLETE_DEPTH_TEXTURE(_DepthTexture,i.uv[1] + uvDist*float2(1,0))); // R
-				depthsAxis.w = Linear01Depth(SAMPLE_COMPLETE_DEPTH_TEXTURE(_DepthTexture,i.uv[1] - uvDist*float2(0,1))); // B
+				depthsAxis.x = Linear01Depth(SAMPLE_COMPLETE_DEPTH_TEXTURE_LOL(_DepthTexture,i.uv[1] + uvDist*float2(0,1))); // T
+				depthsAxis.y = Linear01Depth(SAMPLE_COMPLETE_DEPTH_TEXTURE_LOL(_DepthTexture,i.uv[1] - uvDist*float2(1,0))); // L
+				depthsAxis.z = Linear01Depth(SAMPLE_COMPLETE_DEPTH_TEXTURE_LOL(_DepthTexture,i.uv[1] + uvDist*float2(1,0))); // R
+				depthsAxis.w = Linear01Depth(SAMPLE_COMPLETE_DEPTH_TEXTURE_LOL(_DepthTexture,i.uv[1] - uvDist*float2(0,1))); // B
 
 				// make it work nicely with depth based image effects such as depth of field:
 				depthsDiag = (depthsDiag > centerDepth.xxxx) ? depthsDiag : centerDepth.xxxx;
